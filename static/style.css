@@ -1,0 +1,301 @@
+:root {
+    --bg: linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%);
+    --user-msg: #dbeafe;
+    --bot-msg: #ffffff;
+    --accent: #2563eb;
+    --shadow: rgba(0, 0, 0, 0.06);
+    --muted: #6b7280;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    margin: 0;
+    padding: 0;
+    color: #111827;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.chat-container {
+    width: 100%;
+    max-width: 800px;
+    height: 90vh;
+    background: #fff;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 30px var(--shadow);
+    overflow: hidden;
+}
+
+header {
+    padding: 16px 24px;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+header svg {
+    flex-shrink: 0;
+}
+
+header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+header .subtitle {
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+}
+
+.msg {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px var(--shadow);
+    line-height: 1.5;
+    word-wrap: break-word;
+    animation: fadeIn 0.3s ease-in;
+    overflow-wrap: break-word;
+    overflow-y: visible;
+    overflow-x: visible;
+    max-height: none;
+    min-height: auto;
+}
+
+/* ✅ Uzun mesajlar için responsive */
+@media (max-width: 768px) {
+    .msg {
+        max-width: 90%;
+    }
+}
+
+.msg.user {
+    align-self: flex-end;
+    background: var(--user-msg);
+    border-bottom-right-radius: 4px;
+}
+
+.msg.bot {
+    align-self: flex-start;
+    background: var(--bot-msg);
+    border-bottom-left-radius: 4px;
+}
+
+.msg p {
+    margin: 0.4em 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+footer textarea {
+    width: 100%;
+    min-height: 70px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 10px 14px;
+    resize: none;
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+button:hover {
+    background: #1e40af;
+}
+
+#status {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .chat-container {
+        height: 95vh;
+        border-radius: 0;
+    }
+
+    #messages {
+        padding: 14px;
+    }
+
+    .msg {
+        max-width: 90%;
+    }
+}
+
+/* 🌗 Tema Toggle Butonu */
+#theme-toggle {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+#theme-toggle:hover {
+    transform: scale(1.1);
+}
+
+/* 🌙 Dark Mode renkleri */
+body.dark {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+    color: #f1f5f9;
+}
+
+body.dark .chat-container {
+    background: #1e293b;
+    color: #f1f5f9;
+}
+
+body.dark header {
+    background: #334155;
+}
+
+body.dark .msg.user {
+    background: #2563eb33;
+    color: #e2e8f0;
+}
+
+body.dark .msg.bot {
+    background: #334155;
+    color: #f1f5f9;
+}
+
+body.dark footer {
+    background: #0f172a;
+    border-top-color: #334155;
+}
+
+body.dark textarea {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f1f5f9;
+}
+
+.hidden {
+    display: none;
+}
+
+/* 🎓 Mezuniyet Şapkası Animasyonu */
+.thinking-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.graduation-cap {
+    font-size: 24px;
+    animation: bounce 1.5s infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+/* Markdown iyileştirmeleri */
+.msg ul,
+.msg ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.msg li {
+    margin: 0.3em 0;
+}
+
+.msg code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.msg pre {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.8em;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.8em 0;
+}
+
+body.dark .msg code,
+body.dark .msg pre {
+    background: rgba(255, 255, 255, 0.1);
+}

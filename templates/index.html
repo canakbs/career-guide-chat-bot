@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Career Guide Chatbot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="chat-container">
+        <header>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <rect width="24" height="24" rx="6" fill="#fff" fill-opacity="0.2" />
+                <path d="M7 12h10M7 8h10M7 16h6" stroke="white" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <div>
+                <h1>Career Guide Chatbot</h1>
+                <div class="subtitle">Ask anything about your career path</div>
+            </div>
+
+            <!-- 🌗 Tema butonu -->
+            <button id="theme-toggle" title="Toggle theme">🌙</button>
+        </header>
+
+        <div id="messages"></div>
+
+        <footer>
+            <form id="chat-form">
+                <textarea id="question" placeholder="Type your question here... (Press Enter to send)"
+                    aria-label="Ask a question"></textarea>
+                <div class="controls">
+                    <button type="submit">Send</button>
+                    <div id="status">Ready</div>
+                </div>
+            </form>
+            <div class="muted">Powered by Gemini API + Pinecone API</div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

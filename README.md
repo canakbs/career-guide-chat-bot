@@ -91,7 +91,7 @@ Open http://127.0.0.1:5000 in your browser.
 - Web: Flask, Flask-Cors
 - Embeddings: sentence-transformers (local by default)
 - Vector DB: Pinecone (optional)
-- LLM Generation: Gemini API (optional) or local synthesizer fallback
+- LLM Generation: Gemini API 
 - Data: Hugging Face `datasets` to load `Pradeep016/career-guidance-qa-dataset`
 
 ## 8) RAG Pipeline Details
@@ -126,8 +126,5 @@ Open http://127.0.0.1:5000 in your browser.
 
 ---
 
-If you want, I can now also:
-- a) Add English comment lines to any other Python files or notebooks.
-- b) Generate a single test query and show the local synthesized response.
-- c) Tweak README to include screenshots or sample outputs.
+
 

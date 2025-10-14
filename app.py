@@ -10,7 +10,30 @@ from datasets import load_dataset
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
 
-# --- 1. LOGGING ---
+# ---------------------------------------------------------------------------
+# Project: Career Guide Chatbot
+#
+# Purpose:
+# - A small RAG-style (retrieval-augmented generation) demo that answers
+#   career-related questions using a public Q/A dataset and an LLM (Gemini).
+# - Retrieval uses Pinecone as a vector store; embeddings are produced by a
+#   sentence-transformers model (local) or can be replaced by a cloud provider.
+#
+# Notes:
+# - This file contains only the application logic. Comments explain the
+#   architecture, environment variables, and how components interact.
+# - For deployment, set the necessary API keys in the `.env` file. If a real
+#   LLM endpoint is not configured, the code falls back to local synthesizer
+#   and retrieval so the app remains usable for demos.
+#
+# Key components:
+# - EmbeddingService: local sentence-transformers model for embeddings.
+# - GeminiClient: wrapper to call the Gemini generation API (if configured).
+# - Pinecone integration: optional vector database for retrieval.
+# - CareerAssistant: orchestrates retrieval and generation for queries.
+#
+# See README.md for detailed instructions, dataset info, and architecture.
+# ---------------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # --- 2. ENV ---
@@ -30,6 +53,10 @@ class Config:
 # --- 4. EMBEDDING SERVICE ---
 class EmbeddingService:
     def __init__(self):
+        # Load a small, fast sentence-transformers model for local embeddings.
+        # This choice is suitable for development and demo purposes. Replace
+        # the model name or use a cloud embedding API for production-quality
+        # vectors.
         try:
             self.model = SentenceTransformer("all-MiniLM-L6-v2")
             logging.info("✅ Embedding modeli yüklendi.")
@@ -38,6 +65,10 @@ class EmbeddingService:
             self.model = None
 
     def embed(self, text: str):
+        # Create an embedding vector for the provided text. This method
+        # returns a Python list of floats suitable for indexing into a
+        # vector database (e.g., Pinecone). The function raises on invalid
+        # inputs or if the model failed to load.
         if not text:
             raise ValueError("Boş metin için embedding oluşturulamaz.")
         if not self.model:
@@ -60,8 +91,11 @@ class GeminiClient:
         self.headers = {"Content-Type": "application/json"}
 
     def generate(self, question: str, context: str):
+        # Generate a response with the configured LLM (Gemini). If no API
+        # key is provided the function returns a mock message. In practice,
+        # replace the BASE_URL and request format to match your LLM provider.
         if not self.api_key:
-            return "Mock yanıt: Yapay zeka anahtarı bulunamadı."
+            return "Mock response: LLM API key not configured."
 
         url = f"{self.BASE_URL}/{self.model}:generateContent?key={self.api_key}"
 
@@ -99,7 +133,7 @@ QUESTION:
             return f"Gemini API HTTP hatası: {r.status_code} — {r.text}"
         except Exception as e:
             logging.error(f"Gemini API hatası: {e}")
-            return "Gemini API erişilemedi."
+            return "Gemini API not reachable."
 
 
 # --- 6. CAREER ASSISTANT ---
@@ -112,8 +146,11 @@ class CareerAssistant:
         self._load_dataset_to_pinecone()
 
     def _setup_pinecone(self):
+        # Initialize Pinecone client and ensure the target index exists.
+        # If Pinecone is not configured, the assistant will still function
+        # using local retrieval only (no vector DB).
         if not self.cfg.PINECONE_API_KEY:
-            logging.warning("Pinecone API key eksik.")
+            logging.warning("Pinecone API key missing.")
             return None
         try:
             pc = Pinecone(api_key=self.cfg.PINECONE_API_KEY)
@@ -130,6 +167,9 @@ class CareerAssistant:
             return None
 
     def _load_dataset_to_pinecone(self):
+        # Load a subset of the dataset into Pinecone if the index is empty.
+        # This operation is optional and intended for demo/populating an
+        # existing index. The full dataset is not stored in the repo.
         if not self.pinecone_index:
             return
 
@@ -164,8 +204,11 @@ class CareerAssistant:
 
 
     def get_answer(self, question: str):
+        # Main query entrypoint: embed the user question, retrieve top
+        # candidates from Pinecone, then synthesize or request an LLM
+        # generation that conditions on retrieved context.
         if not question:
-            return "Lütfen bir soru girin."
+            return "Please enter a question."
         
         query_emb = self.embedder.embed(question)
         
@@ -188,7 +231,7 @@ class CareerAssistant:
             
             if not relevant_matches:
                 context = "No relevant context found."
-                logging.warning("Yüksek skorlu eşleşme bulunamadı")
+                logging.warning("No high-scoring matches found")
             else:
                 context = "\n".join([
                     f"Q: {m['metadata'].get('question', '')}\nA: {m['metadata'].get('answer', '')}" 
@@ -199,6 +242,10 @@ class CareerAssistant:
             logging.error(f"Sorgu hatası: {e}")
             context = "No context found."
 
+        # Request the LLM to generate a final answer using the assembled
+        # context. If Gemini is not configured, GeminiClient will return a
+        # mock response (local synthesizer can be used instead in other
+        # parts of the code if preferred).
         return self.gemini.generate(question, context)
 
     def health(self):

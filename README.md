@@ -124,6 +124,13 @@ Open http://127.0.0.1:5000 in your browser.
 - The UI is intentionally minimal. See `templates/index.html` and
    `static/style.css` for the frontend implementation.
 
+
+![Chat UI — screenshot 1](static/images/sohbet1.png)
+
+![Chat UI — screenshot 2](static/images/sohbet2.png)
+
+![Server / index log (sample)](static/images/log.png)
+
 ---
 
 

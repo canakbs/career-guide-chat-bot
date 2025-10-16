@@ -1,20 +1,20 @@
-# --- Web Sunucusu ve Framework ---
-# Render gibi platformlarda uygulamayı çalıştırmak için Gunicorn gereklidir.
+# requirements.txt
+
+# PyTorch'un sadece CPU versiyonunu indirmesi için özel index URL'si
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Web Sunucusu ve Framework
 gunicorn
-Flask==3.0.3
-Flask-Cors==4.0.1
+Flask
+Flask-Cors
 
-# --- Yardımcı Kütüphaneler ---
-python-dotenv==1.0.1
-requests==2.32.3
+# Yardımcı Kütüphaneler
+python-dotenv
+requests
 
-# --- AI ve Vektör Veritabanı Kütüphaneleri ---
-# Bu kütüphanelerin versiyonlarını belirtmiyoruz.
-# pip, Python 3.11 ile uyumlu en uygun versiyonları kendisi bulacaktır.
+# AI ve Vektör Veritabanı Kütüphaneleri
 sentence-transformers
 pinecone
 datasets
-
-# --- Uyumlu Sürümler İçin Kısıtlamalar ---
-# sentence-transformers ile uyumluluk sorunlarını önlemek için NumPy 2.0'dan önceki bir sürümü kullanıyoruz.
+torch # Versiyon belirtme, uyumlu CPU versiyonunu bulacak
 numpy<2.0

@@ -83,28 +83,28 @@ class EmbeddingService:
 
 # --- 5. GEMINI CLIENT ---
 class GeminiClient:
-    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"  # ✅ v1beta sürümü korundu
 
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash"): # Model adını güncelledim
+    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash"):  # ✅ Model güncellendi
         self.api_key = api_key
         self.model = model_name
         self.headers = {"Content-Type": "application/json"}
 
-    # GÜNCELLEME: 'history' parametresi eklendi
     def generate(self, question: str, context: str, history: list = None):
         if not self.api_key:
             return "Mock response: LLM API key not configured."
 
         url = f"{self.BASE_URL}/{self.model}:generateContent?key={self.api_key}"
 
-        # GÜNCELLEME: Konuşma geçmişini Gemini formatına çevir
+        # Konuşma geçmişini Gemini formatına çevir
         gemini_history = []
         if history:
             for turn in history:
                 gemini_history.append({"role": "user", "parts": [{"text": turn["question"]}]})
                 gemini_history.append({"role": "model", "parts": [{"text": turn["answer"]}]})
         
-        # GÜNCELLEME: Prompt yapısı konuşma geçmişini içerecek şekilde güncellendi
+        
+        # Sistem talimatı
         system_instruction = f"""
 You are a helpful AI assistant specialized in career guidance.
 Use the following external context for your answer if it's relevant to the user's LATEST question.
@@ -113,23 +113,24 @@ If the context seems irrelevant to the user's latest question, rely on the conve
 CONTEXT:
 {context}
 """
-        
-        # GÜNCELLEME: Mevcut soruyu da geçmişin sonuna ekle
+
+        # Mevcut soruyu geçmişe ekle
         current_question_part = {"role": "user", "parts": [{"text": question}]}
 
-        # GÜNCELLEME: Payload artık tüm konuşmayı içeriyor
+        # Payload oluştur
         payload = {
             "contents": gemini_history + [current_question_part],
-            "systemInstruction": { # Sistem talimatını ayrı bir alana koymak daha etkili
+            "systemInstruction": {
                 "parts": [{"text": system_instruction}]
             }
         }
-        
+
         try:
             r = requests.post(url, headers=self.headers, json=payload, timeout=30)
             r.raise_for_status()
             data = r.json()
-            # API yanıt formatı değişmiş olabilir, güvenli erişim
+            
+            # API yanıtını güvenli şekilde çöz
             if "candidates" in data and data["candidates"]:
                 content = data["candidates"][0].get("content", {})
                 if "parts" in content and content["parts"]:
@@ -142,6 +143,7 @@ CONTEXT:
         except Exception as e:
             logging.error(f"Gemini API hatası: {e}")
             return "Gemini API not reachable."
+        
 
 # --- 6. CAREER ASSISTANT ---
 class CareerAssistant:
@@ -192,24 +194,49 @@ class CareerAssistant:
         except Exception as e:
             logging.error(f"Veri yükleme hatası: {e}")
 
-    # GÜNCELLEME: 'history' parametresi eklendi
     def get_answer(self, question: str, history: list = None):
         if not question:
             return "Please enter a question."
         
         context = "No relevant context found."
+        max_score = 0.0  # 🔹 Skor takibi için eklendi
+        
         try:
             if self.pinecone_index:
                 query_emb = self.embedder.embed(question)
                 res = self.pinecone_index.query(vector=query_emb, top_k=3, include_metadata=True)
                 relevant_matches = [m for m in res["matches"] if m["score"] > 0.3]
+
+                # 🔹 Maksimum skor hesapla
+                if res.get("matches"):
+                    max_score = max([m["score"] for m in res["matches"]])
+
                 if relevant_matches:
-                    context = "\n".join([f"Q: {m['metadata'].get('question', '')}\nA: {m['metadata'].get('answer', '')}" for m in relevant_matches])
+                    context = "\n".join([
+                        f"Q: {m['metadata'].get('question', '')}\nA: {m['metadata'].get('answer', '')}"
+                        for m in relevant_matches
+                    ])
         except Exception as e:
             logging.error(f"Sorgu hatası: {e}")
             context = "Error during context retrieval."
 
-        # GÜNCELLEME: Gemini'ye artık 'history' de gönderiliyor
+        # 🔹 Skor düşükse bazı meslekleri yasakla
+        restricted_jobs = ["UX/UI Designer", "Game Developer", "Mobile App Developer"]
+        job_restriction_instruction = ""
+
+        if max_score < 0.5:
+            job_restriction_instruction = (
+                f"\nIMPORTANT: Do NOT mention or base your answer on these jobs: {', '.join(restricted_jobs)}.\n"
+                "Focus on other careers instead."
+            )
+        else:
+            job_restriction_instruction = (
+                f"\nYou MAY mention these jobs if relevant: {', '.join(restricted_jobs)}.\n"
+            )
+
+        # 🔹 Bu kısıtlamayı Gemini'ye ekle
+        context += job_restriction_instruction
+
         return self.gemini.generate(question, context, history)
 
     def health(self):

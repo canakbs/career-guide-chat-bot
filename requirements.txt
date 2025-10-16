@@ -12,7 +12,7 @@ requests==2.32.3
 # Bu kütüphanelerin versiyonlarını belirtmiyoruz.
 # pip, Python 3.11 ile uyumlu en uygun versiyonları kendisi bulacaktır.
 sentence-transformers
-pinecone-client
+pinecone
 datasets
 
 # --- Uyumlu Sürümler İçin Kısıtlamalar ---

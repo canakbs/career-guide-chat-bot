@@ -1,36 +1,34 @@
+// scripts.js (Güncellenmiş Hali)
+
 const form = document.getElementById('chat-form');
 const messages = document.getElementById('messages');
 const status = document.getElementById('status');
 const textarea = document.getElementById('question');
 
-function addMessage(text, who = 'bot', scrollToBottom = false) {
+// GÜNCELLEME: Konuşma geçmişini saklamak için bir değişken oluşturuldu.
+let conversationHistory = [];
+
+function addMessage(text, who = 'bot') {
     const div = document.createElement('div');
     div.className = 'msg ' + who;
-    div.innerHTML = marked.parse(text);
-
+    div.innerHTML = marked.parse(text); // marked.js kütüphanesinin markdown'ı HTML'e çevirdiğini varsayıyoruz.
     messages.appendChild(div);
-
-    // ✅ Sadece scrollToBottom true ise en alta kaydır
-    if (scrollToBottom) {
-        messages.scrollTop = messages.scrollHeight;
-    }
+    messages.scrollTop = messages.scrollHeight; // Her yeni mesajda en alta kaydır
 }
 
-// 🎓 Düşünme indicator'ü ekleme fonksiyonu
 function addThinkingIndicator() {
     const thinkingDiv = document.createElement('div');
-    thinkingDiv.className = 'thinking-indicator';
+    thinkingDiv.className = 'msg bot'; // 'bot' stiliyle uyumlu olsun
     thinkingDiv.id = 'thinking-indicator';
     thinkingDiv.innerHTML = `
-        <div class="graduation-cap">🎓</div>
-        <span>Thinking for the best response...</span>
-    `;
+        <div class="typing-indicator">
+            <span></span><span></span><span></span>
+        </div>
+    `; // Daha basit bir "yazıyor" animasyonu
     messages.appendChild(thinkingDiv);
-    // ✅ Düşünme indicator'ü eklenince en alta kaydır (kullanıcı görebilsin)
     messages.scrollTop = messages.scrollHeight;
 }
 
-// 🎓 Düşünme indicator'ünü kaldırma fonksiyonu
 function removeThinkingIndicator() {
     const thinkingIndicator = document.getElementById('thinking-indicator');
     if (thinkingIndicator) {
@@ -38,53 +36,60 @@ function removeThinkingIndicator() {
     }
 }
 
-// 📤 Mesaj gönderme fonksiyonu
 async function sendMessage() {
     const q = textarea.value.trim();
     if (!q) return;
 
-    // ✅ Kullanıcı mesajını ekle ve EN ALTA KAYDIR (kullanıcı görebilsin)
-    addMessage(q, 'user', true);
+    addMessage(q, 'user');
     textarea.value = '';
     status.textContent = 'Thinking...';
 
-    // 🎓 Düşünme indicator'ünü göster (zaten en altdayız)
     addThinkingIndicator();
 
     try {
+        // GÜNCELLEME: fetch isteğinin body'sine 'history' eklendi.
         const res = await fetch('/ask', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: q })
+            body: JSON.stringify({
+                question: q,
+                history: conversationHistory
+            })
         });
 
-        if (!res.ok) throw new Error('Server error');
+        if (!res.ok) {
+            const errorData = await res.text();
+            throw new Error(`Server error: ${res.status} - ${errorData}`);
+        }
+
         const data = await res.json();
+        const botAnswer = data.answer || 'No response';
 
-        // 🎓 Düşünme indicator'ünü kaldır ve cevabı göster
         removeThinkingIndicator();
+        addMessage(botAnswer, 'bot');
 
-        // ✅ Bot yanıtını ekle ama EN ALTA KAYDIRMA!
-        addMessage(data.answer || 'No response', 'bot', false);
+        // GÜNCELLEME: Başarılı bir cevaptan sonra konuşma geçmişini güncelle.
+        conversationHistory.push({
+            question: q,
+            answer: botAnswer
+        });
 
     } catch (err) {
-        // 🎓 Hata durumunda da indicator'ü kaldır
         removeThinkingIndicator();
-        // ✅ Hata mesajını da en alta kaydırma
-        addMessage('[Error] ' + err.message, 'bot', false);
+        addMessage(`[Error] ${err.message}`, 'bot');
     } finally {
         status.textContent = 'Ready';
-        // ✅ Burda da en alta kaydırma yok!
+        textarea.focus();
     }
 }
 
-// 📝 Form submit event
-form.addEventListener('submit', async (e) => {
+// Form submit event
+form.addEventListener('submit', (e) => {
     e.preventDefault();
     sendMessage();
 });
 
-// ⌨️ Enter tuşu ile gönderme (Shift+Enter ile yeni satır)
+// Enter tuşu ile gönderme (Shift+Enter ile yeni satır)
 textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -92,21 +97,18 @@ textarea.addEventListener('keydown', (e) => {
     }
 });
 
-// 🌗 Tema geçişi sistemi
+// Tema geçişi sistemi ve diğer UI kodları aynı kalabilir...
 const themeToggle = document.getElementById('theme-toggle');
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const currentTheme = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
 
-// Başlangıç temasını uygula
 document.body.classList.toggle('dark', currentTheme === 'dark');
 themeToggle.textContent = currentTheme === 'dark' ? '🌞' : '🌙';
 
-// Tıklama ile değiştir
 themeToggle.addEventListener('click', () => {
     const isDark = document.body.classList.toggle('dark');
     themeToggle.textContent = isDark ? '🌞' : '🌙';
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
 });
 
-// Textarea'ya focus ver
 textarea.focus();

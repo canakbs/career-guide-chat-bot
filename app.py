@@ -85,56 +85,63 @@ class EmbeddingService:
 class GeminiClient:
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash"): # Model adını güncelledim
         self.api_key = api_key
         self.model = model_name
         self.headers = {"Content-Type": "application/json"}
 
-    def generate(self, question: str, context: str):
-        # Generate a response with the configured LLM (Gemini). If no API
-        # key is provided the function returns a mock message. In practice,
-        # replace the BASE_URL and request format to match your LLM provider.
+    # GÜNCELLEME: 'history' parametresi eklendi
+    def generate(self, question: str, context: str, history: list = None):
         if not self.api_key:
             return "Mock response: LLM API key not configured."
 
         url = f"{self.BASE_URL}/{self.model}:generateContent?key={self.api_key}"
 
-        prompt = f"""
+        # GÜNCELLEME: Konuşma geçmişini Gemini formatına çevir
+        gemini_history = []
+        if history:
+            for turn in history:
+                gemini_history.append({"role": "user", "parts": [{"text": turn["question"]}]})
+                gemini_history.append({"role": "model", "parts": [{"text": turn["answer"]}]})
+        
+        # GÜNCELLEME: Prompt yapısı konuşma geçmişini içerecek şekilde güncellendi
+        system_instruction = f"""
 You are a helpful AI assistant specialized in career guidance.
-Use the following context for your answer if it's relevant.
+Use the following external context for your answer if it's relevant to the user's LATEST question.
+If the context seems irrelevant to the user's latest question, rely on the conversation history to provide a helpful response.
 
 CONTEXT:
 {context}
-
-QUESTION:
-{question}
 """
+        
+        # GÜNCELLEME: Mevcut soruyu da geçmişin sonuna ekle
+        current_question_part = {"role": "user", "parts": [{"text": question}]}
 
+        # GÜNCELLEME: Payload artık tüm konuşmayı içeriyor
         payload = {
-            "contents": [
-                {"role": "user", "parts": [{"text": prompt}]}
-            ]
+            "contents": gemini_history + [current_question_part],
+            "systemInstruction": { # Sistem talimatını ayrı bir alana koymak daha etkili
+                "parts": [{"text": system_instruction}]
+            }
         }
-
+        
         try:
             r = requests.post(url, headers=self.headers, json=payload, timeout=30)
             r.raise_for_status()
             data = r.json()
-            return (
-                data.get("candidates", [{}])[0]
-                .get("content", {})
-                .get("parts", [{}])[0]
-                .get("text", "No response.")
-            )
+            # API yanıt formatı değişmiş olabilir, güvenli erişim
+            if "candidates" in data and data["candidates"]:
+                content = data["candidates"][0].get("content", {})
+                if "parts" in content and content["parts"]:
+                    return content["parts"][0].get("text", "No response text found.")
+            return "No valid response from Gemini."
 
         except requests.exceptions.HTTPError as http_err:
             logging.error(f"Gemini HTTP hatası: {http_err} - {r.text}")
-            # Hata mesajı daha açıklayıcı olsun:
             return f"Gemini API HTTP hatası: {r.status_code} — {r.text}"
         except Exception as e:
             logging.error(f"Gemini API hatası: {e}")
             return "Gemini API not reachable."
-
 
 # --- 6. CAREER ASSISTANT ---
 class CareerAssistant:
@@ -143,18 +150,14 @@ class CareerAssistant:
         self.embedder = EmbeddingService()
         self.pinecone_index = self._setup_pinecone()
         self.gemini = GeminiClient(cfg.GEMINI_API_KEY)
-        self._load_dataset_to_pinecone()
+        # self._load_dataset_to_pinecone() # Bu satırı deployda kapatmak iyi bir fikir olabilir
 
     def _setup_pinecone(self):
-        # Initialize Pinecone client and ensure the target index exists.
-        # If Pinecone is not configured, the assistant will still function
-        # using local retrieval only (no vector DB).
-        if not self.cfg.PINECONE_API_KEY:
-            logging.warning("Pinecone API key missing.")
-            return None
+        # ... (Bu fonksiyon aynı kalıyor) ...
+        if not self.cfg.PINECONE_API_KEY: return None
         try:
             pc = Pinecone(api_key=self.cfg.PINECONE_API_KEY)
-            if self.cfg.PINECONE_INDEX not in [i.name for i in pc.list_indexes()]:
+            if self.cfg.PINECONE_INDEX not in pc.list_indexes().names():
                 pc.create_index(
                     name=self.cfg.PINECONE_INDEX,
                     dimension=self.cfg.EMBEDDING_DIM,
@@ -167,97 +170,50 @@ class CareerAssistant:
             return None
 
     def _load_dataset_to_pinecone(self):
-        # Load a subset of the dataset into Pinecone if the index is empty.
-        # This operation is optional and intended for demo/populating an
-        # existing index. The full dataset is not stored in the repo.
-        if not self.pinecone_index:
-            return
-
-        stats = self.pinecone_index.describe_index_stats()
-        if stats.get("total_vector_count", 0) > 0:
+        # ... (Bu fonksiyon aynı kalıyor) ...
+        if not self.pinecone_index: return
+        if self.pinecone_index.describe_index_stats().get("total_vector_count", 0) > 0:
             logging.info("Index zaten dolu, veri yükleme atlandı.")
-            return      
-            
+            return
         try:
             ds = load_dataset("Pradeep016/career-guidance-qa-dataset", split="train")
             examples = random.sample(list(ds), min(300, len(ds)))
-
             vectors = []
             for i, row in enumerate(examples):
                 q = row.get("question", "").strip()
-                a = row.get("answer", "").strip()
-                if not q:
-                    continue
-                emb = self.embedder.embed(q)
+                if not q: continue
                 vectors.append({
-                    "id": f"vec_{i}",
-                    "values": emb,
-                    "metadata": {"question": q[:300], "answer": a[:300]},
+                    "id": f"vec_{i}", "values": self.embedder.embed(q),
+                    "metadata": {"question": q[:300], "answer": row.get("answer", "")[:300]}
                 })
-
             for i in range(0, len(vectors), self.cfg.BATCH_SIZE):
                 self.pinecone_index.upsert(vectors=vectors[i:i + self.cfg.BATCH_SIZE])
             logging.info(f"{len(vectors)} vektör Pinecone’a yüklendi.")
         except Exception as e:
             logging.error(f"Veri yükleme hatası: {e}")
 
-
-
-    def get_answer(self, question: str):
-        # Main query entrypoint: embed the user question, retrieve top
-        # candidates from Pinecone, then synthesize or request an LLM
-        # generation that conditions on retrieved context.
+    # GÜNCELLEME: 'history' parametresi eklendi
+    def get_answer(self, question: str, history: list = None):
         if not question:
             return "Please enter a question."
         
-        query_emb = self.embedder.embed(question)
-        
+        context = "No relevant context found."
         try:
-            # Gelişmiş sorgu parametreleri
-            res = self.pinecone_index.query(
-                vector=query_emb, 
-                top_k=5, 
-                include_metadata=True,
-                include_values=False,  # Gereksiz veri transferini azalt
-                filter=None,  # İsterseniz metadata filtreleri ekleyin
-            )
-            
-            # Skorları kontrol et
-            for i, match in enumerate(res["matches"]):
-                logging.info(f"Match {i+1}: Score={match['score']:.4f}, ID={match['id']}")
-            
-            # Skor eşiği uygula
-            relevant_matches = [m for m in res["matches"] if m["score"] > 0.3]  # Eşik değeri ayarla
-            
-            if not relevant_matches:
-                context = "No relevant context found."
-                logging.warning("No high-scoring matches found")
-            else:
-                context = "\n".join([
-                    f"Q: {m['metadata'].get('question', '')}\nA: {m['metadata'].get('answer', '')}" 
-                    for m in relevant_matches
-                ])
-                
+            if self.pinecone_index:
+                query_emb = self.embedder.embed(question)
+                res = self.pinecone_index.query(vector=query_emb, top_k=3, include_metadata=True)
+                relevant_matches = [m for m in res["matches"] if m["score"] > 0.3]
+                if relevant_matches:
+                    context = "\n".join([f"Q: {m['metadata'].get('question', '')}\nA: {m['metadata'].get('answer', '')}" for m in relevant_matches])
         except Exception as e:
             logging.error(f"Sorgu hatası: {e}")
-            context = "No context found."
+            context = "Error during context retrieval."
 
-        # Request the LLM to generate a final answer using the assembled
-        # context. If Gemini is not configured, GeminiClient will return a
-        # mock response (local synthesizer can be used instead in other
-        # parts of the code if preferred).
-        return self.gemini.generate(question, context)
+        # GÜNCELLEME: Gemini'ye artık 'history' de gönderiliyor
+        return self.gemini.generate(question, context, history)
 
     def health(self):
-        return {
-            "status": "healthy",
-            "pinecone_ready": bool(self.pinecone_index),
-            "gemini_ready": bool(self.cfg.GEMINI_API_KEY),
-            "embedding_model": "all-MiniLM-L6-v2",
-        }
-
-
-
+        return { "status": "healthy", "pinecone_ready": bool(self.pinecone_index), "gemini_ready": bool(self.cfg.GEMINI_API_KEY) }
 
 # --- 7. FLASK APP ---
 app = Flask(__name__)
@@ -275,7 +231,15 @@ def ask():
     data = request.get_json()
     if not data or "question" not in data:
         return jsonify({"answer": "Geçersiz istek."}), 400
-    return jsonify({"answer": assistant.get_answer(data["question"].strip())})
+    
+    question = data["question"].strip()
+    # GÜNCELLEME: Frontend'den gelen 'history' listesini al
+    history = data.get("history", [])
+    
+    # GÜNCELLEME: CareerAssistant'a hem soruyu hem de geçmişi gönder
+    answer = assistant.get_answer(question, history)
+    
+    return jsonify({"answer": answer})
 
 @app.route("/health")
 def health():

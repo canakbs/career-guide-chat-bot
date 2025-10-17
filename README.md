@@ -1,6 +1,6 @@
 
 # Career Guide Chatbot
-Link: [text](https://career-guide-chat-bot.onrender.com/)
+Link: [Career Guide ChatBot](https://career-guide-chat-bot.onrender.com/)
 
 This repository contains a small Flask-based RAG (retrieval-augmented generation)
 demo that answers career-related questions using a public Q/A dataset, a
